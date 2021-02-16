@@ -1,7 +1,7 @@
 import "jest";
 import DFT from "../src";
 
-const dft = (x: [ArrayLike<number>, ArrayLike<number>]) => {
+const bruteForceDFT = (x: [ArrayLike<number>, ArrayLike<number>]) => {
   const size = x[0].length;
   const X: [number[], number[]] = [[], []];
 
@@ -22,87 +22,79 @@ const dft = (x: [ArrayLike<number>, ArrayLike<number>]) => {
   return X;
 };
 
-const createNumericEqual = (eps: number) => {
-  return (x: ArrayLike<number>, y: ArrayLike<number>) => {
-    if (x.length !== y.length) {
-      return false;
-    }
+(["Cooley-Tukey", "Bluestein"] as const).forEach((fftType) => {
+  const size = fftType === "Cooley-Tukey" ? 64 : 60;
+  const range = fftType === "Cooley-Tukey" ? 64 : 128;
 
-    return Array.from(x).every((x, i) => {
-      if (Math.abs(x) < eps && Math.abs(y[i]) < eps) {
-        return true;
-      } else if (y[i] === 0) {
-        return Math.abs(x) < eps;
-      } else {
-        return Math.abs(x / y[i] - 1) < eps;
-      }
+  describe(fftType, () => {
+    (["Array", "Float32Array", "Float64Array"] as const).forEach((vecType) => {
+      it(`Real ${vecType}`, () => {
+        const fft = new DFT(size);
+        const xr = fft.createVec(vecType);
+        const xi = fft.createVec(vecType);
+
+        expect(fft.size).toBe(size);
+        expect(fft.range).toBe(range);
+
+        for (let t = 0; t < size; t++) {
+          xr[t] = Math.random();
+          xi[t] = 0;
+        }
+
+        const _xr = xr.slice(0);
+        const [Tr, Ti] = bruteForceDFT([xr, xi]);
+        const [Xr, Xi] = fft.realDFT(xr);
+
+        expect(Xr.length).toBe((size >> 1) + 1);
+
+        for (let f = 0; f < Xr.length; f++) {
+          expect(Xr[f]).toBeCloseTo(Tr[f], 3);
+          expect(Xi[f]).toBeCloseTo(Ti[f], 3);
+        }
+
+        const y = fft.realIDFT(Tr, Ti);
+        expect(y.length).toBe(size);
+
+        for (let t = 0; t < size; t++) {
+          expect(y[t]).toBeCloseTo(_xr[t], 3);
+        }
+      });
+
+      it(`Complex ${vecType}`, () => {
+        const fft = new DFT(size);
+        const xr = fft.createVec(vecType);
+        const xi = fft.createVec(vecType);
+
+        expect(fft.size).toBe(size);
+        expect(fft.range).toBe(range);
+
+        for (let t = 0; t < size; t++) {
+          xr[t] = Math.random();
+          xi[t] = Math.random();
+        }
+
+        const _xr = xr.slice(0);
+        const _xi = xi.slice(0);
+        const [Tr, Ti] = bruteForceDFT([xr, xi]);
+        const [Xr, Xi] = fft.complexDFT(xr, xi);
+
+        expect(Xr.length).toBe(size);
+        expect(Xi.length).toBe(size);
+
+        for (let f = 0; f < size; f++) {
+          expect(Xr[f]).toBeCloseTo(Tr[f], 3);
+          expect(Xi[f]).toBeCloseTo(Ti[f], 3);
+        }
+
+        const [yr, yi] = fft.complexIDFT(Tr, Ti);
+        expect(yr.length).toBe(size);
+        expect(yi.length).toBe(size);
+
+        for (let t = 0; t < size; t++) {
+          expect(yr[t]).toBeCloseTo(_xr[t], 3);
+          expect(yi[t]).toBeCloseTo(_xi[t], 3);
+        }
+      });
     });
-  };
-};
-
-const fftTester = (
-  size: number,
-  mode: "real" | "complex",
-  type: "Array" | "Float32Array" | "Float64Array"
-) => {
-  const fft = new DFT(size);
-  const xr = fft.createVec(type);
-  const xi = fft.createVec(type);
-  const eps = type === "Float32Array" ? 1e-3 : 1e-6;
-  const isNumericEqual = createNumericEqual(eps);
-
-  if (mode === "real") {
-    for (let i = 0; i < fft.size; i++) {
-      xr[i] = Math.random();
-      xi[i] = 0;
-    }
-
-    const xrCopy = xr.slice(0);
-
-    const [Xr, Xi] = dft([xr, xi]);
-    const [Yr, Yi] = fft.realDFT(xr);
-
-    Xr.length = (size >> 1) + 1;
-    Xi.length = (size >> 1) + 1;
-
-    expect(isNumericEqual(Xr, Yr)).toBe(true);
-    expect(isNumericEqual(Xi, Yi)).toBe(true);
-
-    const y = fft.realIDFT(Xr, Xi);
-    expect(isNumericEqual(xrCopy, y)).toBe(true);
-  } else {
-    for (let i = 0; i < fft.size; i++) {
-      xr[i] = Math.random();
-      xi[i] = Math.random();
-    }
-
-    const xrCopy = xr.slice(0);
-    const xiCopy = xi.slice(0);
-
-    const [Xr, Xi] = dft([xr, xi]);
-    const [Yr, Yi] = fft.complexDFT(xr, xi);
-
-    expect(isNumericEqual(Xr, Yr)).toBe(true);
-    expect(isNumericEqual(Xi, Yi)).toBe(true);
-
-    const [yr, yi] = fft.complexIDFT(Xr, Xi);
-    expect(isNumericEqual(yr, xrCopy)).toBe(true);
-    expect(isNumericEqual(yi, xiCopy)).toBe(true);
-  }
-};
-
-for (const x1 of ["real", "complex"] as const) {
-  for (const x2 of ["Array", "Float32Array", "Float64Array"] as const) {
-    test(`${x1} ${x2} Cooley-Tukey`, () => {
-      fftTester(64, x1, x2);
-    });
-  }
-}
-
-for (const x1 of ["real", "complex"] as const) {
-  for (const x2 of ["Array", "Float32Array", "Float64Array"] as const) {
-    test(`${x1} ${x2} Bluestein`, () => {
-      fftTester(65, x1, x2);
-    });
-  }
-}
+  });
+});

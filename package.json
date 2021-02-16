@@ -1,7 +1,7 @@
 {
   "name": "fft",
   "version": "0.1.0",
-  "description": "",
+  "description": "Implementation of FFT in an arbitrary length",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
   "types": "dist/types/index.d.ts",
@@ -11,11 +11,11 @@
   "jsdelivr": "dist/iife/index.js",
   "unpkg": "dist/iife/index.js",
   "scripts": {
+    "test": "jest",
     "prebuild": "rimraf dist",
     "build:js": "rollup --config ./rollup.config.js",
     "build:dts": "tsc src/index.ts --moduleResolution node --target ESNext --declaration true --emitDeclarationOnly --outDir dist/types",
-    "build": "npm-run-all build:*",
-    "test": "jest"
+    "build": "npm-run-all build:*"
   },
   "author": "calamari-dev <pacific.flying.squid+calamari@gmail.com> (https://github.com/calamari-dev)",
   "license": "MIT",
@@ -25,7 +25,6 @@
     "@typescript-eslint/parser": "^4.12.0",
     "eslint": "^7.17.0",
     "eslint-config-prettier": "^7.1.0",
-    "eslint-plugin-prettier": "^3.3.1",
     "husky": "^4.3.7",
     "jest": "^26.6.3",
     "lint-staged": "^10.5.3",
@@ -47,7 +46,7 @@
     }
   },
   "lint-staged": {
-    "*.js": [
+    "*.ts": [
       "prettier --write",
       "eslint --cache --fix",
       "jest --bail --findRelatedTests"
